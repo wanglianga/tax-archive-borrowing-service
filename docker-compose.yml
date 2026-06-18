@@ -1,0 +1,95 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: tax-archive-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_2024
+      MYSQL_DATABASE: tax_archive_db
+      MYSQL_USER: tax_admin
+      MYSQL_PASSWORD: tax_password_2024
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./src/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "tax_admin", "-ptax_password_2024"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - tax-archive-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: tax-archive-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tax-archive-net
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tax-archive-app
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: tax_admin
+      DB_PASSWORD: tax_password_2024
+      DB_NAME: tax_archive_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      JWT_SECRET: tax_archive_jwt_secret_key_2024_very_long_secure
+      JWT_EXPIRES_IN: 8h
+      WATERMARK_TEXT: "税务电子档案 - 机密文件"
+      DEFAULT_PREVIEW_LIMIT: 10
+      DEFAULT_DOWNLOAD_LIMIT: 3
+      DEFAULT_BORROW_DAYS: 7
+      UPLOAD_DIR: ./uploads
+      PREVIEW_DIR: ./previews
+      DESENSITIZED_DIR: ./desensitized
+      TZ: Asia/Shanghai
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./previews:/app/previews
+      - ./desensitized:/app/desensitized
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - tax-archive-net
+
+volumes:
+  mysql-data:
+  redis-data:
+
+networks:
+  tax-archive-net:
+    driver: bridge
