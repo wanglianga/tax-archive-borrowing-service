@@ -13,7 +13,6 @@ router.use(authenticate);
 router.get('/', async (req, res, next) => {
   try {
     const { keyword = '', page = 1, pageSize = 20 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(pageSize);
     const params = [];
     let where = 'WHERE 1=1';
 
@@ -23,20 +22,17 @@ router.get('/', async (req, res, next) => {
       params.push(likeKeyword, likeKeyword, likeKeyword);
     }
 
-    const [list, countResult] = await Promise.all([
-      db.query(
-        `SELECT * FROM taxpayers ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-        [...params, parseInt(pageSize), offset]
-      ),
-      db.query(
-        `SELECT COUNT(*) as total FROM taxpayers ${where}`,
-        params
-      )
+    const listSql = `SELECT * FROM taxpayers ${where} ORDER BY created_at DESC`;
+    const countSql = `SELECT COUNT(*) as total FROM taxpayers ${where}`;
+
+    const [list, total] = await Promise.all([
+      db.queryWithPagination(listSql, params, { page, pageSize }),
+      db.countQuery(countSql, params)
     ]);
 
     return success(res, {
       list,
-      total: countResult[0].total,
+      total,
       page: parseInt(page),
       pageSize: parseInt(pageSize)
     });

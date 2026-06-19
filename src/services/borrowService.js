@@ -86,9 +86,10 @@ async function createBorrowApplication({
     throw new AppError('至少需要选择一个档案', 400, 'NO_ARCHIVES_SELECTED');
   }
 
+  const archivePlaceholders = archiveIds.map(() => '?').join(', ');
   const archives = await db.query(
-    'SELECT * FROM archives WHERE id IN (?) AND status = 1',
-    [archiveIds]
+    `SELECT * FROM archives WHERE id IN (${archivePlaceholders}) AND status = 1`,
+    archiveIds
   );
 
   if (archives.length !== archiveIds.length) {
@@ -185,7 +186,6 @@ async function listBorrowApplications({
   page = 1,
   pageSize = 20
 }) {
-  const offset = (page - 1) * pageSize;
   const params = [];
   let where = 'WHERE 1=1';
 
@@ -210,24 +210,21 @@ async function listBorrowApplications({
     params.push(like, like);
   }
 
-  const [list, countResult] = await Promise.all([
-    db.query(
-      `SELECT ba.*, u.real_name as applicant_name, u.department, u.position
+  const listSql = `SELECT ba.*, u.real_name as applicant_name, u.department, u.position
        FROM borrow_applications ba
        LEFT JOIN users u ON ba.applicant_id = u.id
        ${where}
-       ORDER BY ba.created_at DESC LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
-    ),
-    db.query(
-      `SELECT COUNT(*) as total FROM borrow_applications ba ${where}`,
-      params
-    )
+       ORDER BY ba.created_at DESC`;
+  const countSql = `SELECT COUNT(*) as total FROM borrow_applications ba ${where}`;
+
+  const [list, total] = await Promise.all([
+    db.queryWithPagination(listSql, params, { page, pageSize }),
+    db.countQuery(countSql, params)
   ]);
 
   return {
     list,
-    total: countResult[0].total,
+    total,
     page,
     pageSize
   };

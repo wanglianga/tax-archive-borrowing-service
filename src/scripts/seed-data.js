@@ -153,6 +153,7 @@ async function seedData() {
       file_name: 'vat_return_202401.pdf',
       file_path: '/uploads/vat_return_202401.pdf',
       file_size: 1024000,
+      file_mime: 'application/pdf',
       period_year: 2024,
       period_month: 1,
       requires_desensitization: 1,
@@ -171,6 +172,7 @@ async function seedData() {
       file_name: 'cit_return_2023.pdf',
       file_path: '/uploads/cit_return_2023.pdf',
       file_size: 2048000,
+      file_mime: 'application/pdf',
       period_year: 2023,
       period_month: 12,
       requires_desensitization: 1,
@@ -189,9 +191,11 @@ async function seedData() {
       file_name: 'invoice_in_202401.xlsx',
       file_path: '/uploads/invoice_in_202401.xlsx',
       file_size: 512000,
+      file_mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       period_year: 2024,
       period_month: 1,
       requires_desensitization: 0,
+      desensitization_rule: null,
       description: '2024年1月增值税进项发票认证清单',
       tags: '进项发票,2024年,1月'
     },
@@ -206,7 +210,9 @@ async function seedData() {
       file_name: 'penalty_2024001.pdf',
       file_path: '/uploads/penalty_2024001.pdf',
       file_size: 768000,
+      file_mime: 'application/pdf',
       period_year: 2024,
+      period_month: 3,
       requires_desensitization: 1,
       desensitization_rule: 'mask_tax_id,mask_amount,mask_phone,mask_bank_account',
       description: '关于北京宏达商贸有限公司发票违法行为的行政处罚决定',
@@ -223,8 +229,11 @@ async function seedData() {
       file_name: 'notice_2024001.pdf',
       file_path: '/uploads/notice_2024001.pdf',
       file_size: 256000,
+      file_mime: 'application/pdf',
       period_year: 2024,
+      period_month: 2,
       requires_desensitization: 0,
+      desensitization_rule: null,
       description: '税务约谈通知书',
       tags: '税务事项通知,约谈'
     }
@@ -233,13 +242,30 @@ async function seedData() {
   for (const arch of archives) {
     await db.query(
       `INSERT INTO archives (archive_code, title, taxpayer_id, catalog_id, archive_type, sensitivity_level,
-        case_number, file_name, file_path, file_size, period_year, period_month, description, tags,
+        case_number, file_name, file_path, file_size, file_mime, period_year, period_month, description, tags,
         requires_desensitization, desensitization_rule, uploader_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+       ON DUPLICATE KEY UPDATE
+         title = VALUES(title),
+         taxpayer_id = VALUES(taxpayer_id),
+         catalog_id = VALUES(catalog_id),
+         archive_type = VALUES(archive_type),
+         sensitivity_level = VALUES(sensitivity_level),
+         case_number = VALUES(case_number),
+         file_name = VALUES(file_name),
+         file_path = VALUES(file_path),
+         file_size = VALUES(file_size),
+         file_mime = VALUES(file_mime),
+         period_year = VALUES(period_year),
+         period_month = VALUES(period_month),
+         description = VALUES(description),
+         tags = VALUES(tags),
+         requires_desensitization = VALUES(requires_desensitization),
+         desensitization_rule = VALUES(desensitization_rule)`,
       [
         arch.archive_code, arch.title, arch.taxpayer_id, arch.catalog_id, arch.archive_type, arch.sensitivity_level,
-        arch.case_number, arch.file_name, arch.file_path, arch.file_size, arch.period_year, arch.period_month,
-        arch.description, arch.tags, arch.requires_desensitization, arch.desensitization_rule
+        arch.case_number, arch.file_name, arch.file_path, arch.file_size, arch.file_mime, arch.period_year, arch.period_month,
+        arch.description, arch.tags, arch.requires_desensitization, arch.desensitization_rule == null ? null : arch.desensitization_rule
       ]
     );
   }

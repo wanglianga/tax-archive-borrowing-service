@@ -15,7 +15,7 @@ async function initDatabase() {
   });
 
   try {
-    const sqlPath = path.join(__dirname, 'schema.sql');
+    const sqlPath = path.join(__dirname, '..', 'db', 'schema.sql');
     const sql = fs.readFileSync(sqlPath, 'utf8');
     await conn.query(sql);
     console.log('数据库表结构创建成功！');

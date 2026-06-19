@@ -23,7 +23,6 @@ router.get('/', async (req, res, next) => {
       pageSize = 20
     } = req.query;
 
-    const offset = (parseInt(page) - 1) * parseInt(pageSize);
     const params = [];
     let where = 'WHERE a.status = 1';
 
@@ -53,25 +52,22 @@ router.get('/', async (req, res, next) => {
       params.push(`%${caseNumber}%`);
     }
 
-    const [list, countResult] = await Promise.all([
-      db.query(
-        `SELECT a.*, t.taxpayer_name, t.taxpayer_id as taxpayer_id_no, c.name as catalog_name
+    const listSql = `SELECT a.*, t.taxpayer_name, t.taxpayer_id as taxpayer_id_no, c.name as catalog_name
          FROM archives a
          LEFT JOIN taxpayers t ON a.taxpayer_id = t.id
          LEFT JOIN archive_catalogs c ON a.catalog_id = c.id
          ${where}
-         ORDER BY a.created_at DESC LIMIT ? OFFSET ?`,
-        [...params, parseInt(pageSize), offset]
-      ),
-      db.query(
-        `SELECT COUNT(*) as total FROM archives a ${where}`,
-        params
-      )
+         ORDER BY a.created_at DESC`;
+    const countSql = `SELECT COUNT(*) as total FROM archives a ${where}`;
+
+    const [list, total] = await Promise.all([
+      db.queryWithPagination(listSql, params, { page, pageSize }),
+      db.countQuery(countSql, params)
     ]);
 
     return success(res, {
       list,
-      total: countResult[0].total,
+      total,
       page: parseInt(page),
       pageSize: parseInt(pageSize)
     });

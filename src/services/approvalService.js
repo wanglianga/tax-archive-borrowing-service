@@ -252,32 +252,26 @@ async function createTempAuthorization({
 }
 
 async function listPendingApprovals(approverId, page = 1, pageSize = 20) {
-  const offset = (page - 1) * pageSize;
-
-  const [list, countResult] = await Promise.all([
-    db.query(
-      `SELECT DISTINCT ba.*, u.real_name as applicant_name, u.department, u.position
+  const where = `WHERE bap.approver_id = ? AND bap.status = 'pending' AND ba.approval_status = 'pending'`;
+  const listSql = `SELECT DISTINCT ba.*, u.real_name as applicant_name, u.department, u.position
        FROM borrow_applications ba
        JOIN borrow_approvals bap ON ba.id = bap.application_id
        LEFT JOIN users u ON ba.applicant_id = u.id
-       WHERE bap.approver_id = ? AND bap.status = 'pending'
-         AND ba.approval_status = 'pending'
-       ORDER BY ba.created_at DESC LIMIT ? OFFSET ?`,
-      [approverId, pageSize, offset]
-    ),
-    db.query(
-      `SELECT COUNT(DISTINCT ba.id) as total
+       ${where}
+       ORDER BY ba.created_at DESC`;
+  const countSql = `SELECT COUNT(DISTINCT ba.id) as total
        FROM borrow_applications ba
        JOIN borrow_approvals bap ON ba.id = bap.application_id
-       WHERE bap.approver_id = ? AND bap.status = 'pending'
-         AND ba.approval_status = 'pending'`,
-      [approverId]
-    )
+       ${where}`;
+
+  const [list, total] = await Promise.all([
+    db.queryWithPagination(listSql, [approverId], { page, pageSize }),
+    db.countQuery(countSql, [approverId])
   ]);
 
   return {
     list,
-    total: countResult[0].total,
+    total,
     page,
     pageSize
   };

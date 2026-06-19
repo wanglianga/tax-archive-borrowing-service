@@ -76,22 +76,18 @@ async function queryAuditLogs({
   }
 
   const whereClause = where.length > 0 ? 'WHERE ' + where.join(' AND ') : '';
-  const offset = (page - 1) * pageSize;
 
-  const [list, countResult] = await Promise.all([
-    db.query(
-      `SELECT * FROM audit_logs ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
-    ),
-    db.query(
-      `SELECT COUNT(*) as total FROM audit_logs ${whereClause}`,
-      params
-    )
+  const listSql = `SELECT * FROM audit_logs ${whereClause} ORDER BY created_at DESC`;
+  const countSql = `SELECT COUNT(*) as total FROM audit_logs ${whereClause}`;
+
+  const [list, total] = await Promise.all([
+    db.queryWithPagination(listSql, params, { page, pageSize }),
+    db.countQuery(countSql, params)
   ]);
 
   return {
     list,
-    total: countResult[0].total,
+    total,
     page,
     pageSize
   };
